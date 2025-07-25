@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1.4
+
+# PyTorch 2.7 with CUDA 12.6 was chosen based on the repository's README,
+# which provides specific installation instructions for this version. The
+# valid base image table contains a matching tag. A `-devel` image is
+# used to ensure build tools are available if needed for PyG's compiled
+# extensions, although pre-built wheels are preferred and used.
+FROM pytorch/pytorch:2.7.0-cuda12.6-cudnn9-devel
+
+ENV CUDA_HOME=/usr/local/cuda-12.6
+
+# Install git to clone the repository.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Clone the repository into the WORKDIR.
+RUN git clone https://github.com/pyg-team/pytorch_geometric .
+
+# Install PyG's compiled dependencies from wheels for the specific torch/cuda version.
+# The base image uses PyTorch 2.7.0 and CUDA 12.6.
+RUN pip install --no-cache-dir pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv \
+    -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
+
+# Install torch_geometric itself from the cloned source.
+# This will also install other Python dependencies from pyproject.toml.
+RUN pip install --no-cache-dir .
+
+# Create an entrypoint to run the gcn.py example.
+COPY --chmod=755 <<'ENTRYPOINT' /app/entrypoint.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The gcn.py example script trains a GCN model on the Cora dataset.
+# The Planetoid dataset class will download the data on the first run.
+python examples/gcn.py
+ENTRYPOINT
+
+ENTRYPOINT ["/app/entrypoint.sh"]
