@@ -1,6 +1,6 @@
 import copy
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -113,10 +113,19 @@ class RootedEgoNets(RootedSubgraph):
 
     Args:
         num_hops (int): the number of hops :math:`k`.
+        root_ratio (float, optional): If set, keeps only a structurally diverse
+            subset of roots (and hence subgraphs), selected via graph
+            coarsening as in the `"A Flexible, Equivariant Framework for
+            Subgraph GNNs via Graph Products and Graph Coarsening"
+            <https://arxiv.org/abs/2406.09291>`_ paper. The value is the
+            fraction of nodes to retain as roots, trading expressivity for a
+            smaller bag of subgraphs. (default: :obj:`None`)
     """
-    def __init__(self, num_hops: int) -> None:
+    def __init__(self, num_hops: int,
+                 root_ratio: Optional[float] = None) -> None:
         super().__init__()
         self.num_hops = num_hops
+        self.root_ratio = root_ratio
 
     def extract(
         self,
@@ -131,10 +140,20 @@ class RootedEgoNets(RootedSubgraph):
         n_mask = torch.eye(num_nodes, device=data.edge_index.device)
         for _ in range(self.num_hops):
             n_mask += adj_t @ n_mask
+        n_mask = n_mask > 0
 
-        return self.map(data, n_mask > 0)
+        if self.root_ratio is not None:
+            from .coarsened_subgraph_selection import select_coarsened_roots
+            roots = select_coarsened_roots(data.edge_index, num_nodes,
+                                           ratio=self.root_ratio)
+            n_mask = n_mask[roots]
+
+        return self.map(data, n_mask)
 
     def __repr__(self) -> str:
+        if self.root_ratio is not None:
+            return (f'{self.__class__.__name__}(num_hops={self.num_hops}, '
+                    f'root_ratio={self.root_ratio})')
         return f'{self.__class__.__name__}(num_hops={self.num_hops})'
 
 
