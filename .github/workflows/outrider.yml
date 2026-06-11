@@ -1,0 +1,46 @@
+name: Outrider
+
+# Manual-only trigger for demo forks. Scheduled runs intentionally
+# omitted (2026-06-11) — these forks are for ad-hoc Phase 1 / REMYX-109
+# testing, not for ongoing autonomous runs.
+#
+# Secrets needed (set in Settings -> Secrets and variables -> Actions):
+#   REMYX_API_KEY        - engine.remyx.ai token
+#   ANTHROPIC_API_KEY    - model-provider token
+
+on:
+  workflow_dispatch:
+
+jobs:
+  recommend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      REMYX_API_KEY: ${{ secrets.REMYX_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      # Mint a remyx[bot] token from Remyx so the PR / Issue is authored by
+      # the Remyx GitHub App (not github-actions[bot]). The App private key
+      # stays on Remyx's side; this uses the REMYX_API_KEY already in secrets.
+      # If it can't be minted (e.g. App not installed), the token is empty and
+      # the action falls back to the workflow's built-in GITHUB_TOKEN.
+      - name: Mint Remyx bot token
+        id: remyx-bot
+        shell: bash
+        run: |
+          token="$(curl -sf -X POST -H "Authorization: Bearer ${{ secrets.REMYX_API_KEY }}" -H "Content-Type: application/json" -d "{\"repo\": \"${{ github.repository }}\"}" "https://engine.remyx.ai/api/v1.0/github/installation-token" | python3 -c "import sys, json; print(json.load(sys.stdin).get('token', ''))")" || token=""
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - uses: remyxai/outrider@v1
+        with:
+          interest-id: fd1d49eb-aeb0-4cc8-901e-41938c38f4cb
+          # remyx[bot] token (empty -> action falls back to GITHUB_TOKEN).
+          github-token: ${{ steps.remyx-bot.outputs.token }}
+          # Disable the per-repo rate-limit window so manual reruns always
+          # evaluate the latest recommendation. Per-paper dedup (open PR /
+          # Issue for the same arxiv_id) still prevents duplicates.
+          rate-limit-days: '0'
