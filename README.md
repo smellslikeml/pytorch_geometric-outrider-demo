@@ -448,3 +448,30 @@ We are motivated to constantly make PyG even better.
 [slack-url]: https://data.pyg.org/slack.html
 [testing-image]: https://github.com/pyg-team/pytorch_geometric/actions/workflows/testing.yml/badge.svg
 [testing-url]: https://github.com/pyg-team/pytorch_geometric/actions/workflows/testing.yml
+
+## Coarsened Subgraph Selection — adapted from "A Flexible, Equivariant Framework for Subgraph GNNs via Graph Products and Graph Coarsening"
+
+Subgraph GNNs represent a graph as a *bag of subgraphs* (one rooted subgraph per
+node), and processing all of them is their main scalability bottleneck. The
+[paper](https://arxiv.org/abs/2406.09291) shows that selecting which subgraphs to
+keep via **graph coarsening** retains far more useful structure than random
+sampling of the same size.
+
+`RootedEgoNets` now accepts a `root_ratio` argument that wires in this result:
+the graph is coarsened into clusters and one structurally representative root is
+drawn per cluster, yielding a smaller, structure-aware bag of subgraphs with no
+change to the existing rooted-subgraph I/O.
+
+```python
+from torch_geometric.transforms import RootedEgoNets
+
+# Keep ~half the subgraphs, chosen by coarsening rather than at random:
+transform = RootedEgoNets(num_hops=2, root_ratio=0.5)
+```
+
+The selection logic lives in
+`torch_geometric/transforms/coarsened_subgraph_selection.py`. The paper's full
+equivariant graph-product architecture is intentionally out of scope; only the
+coarsening-based selection result is integrated.
+
+Contributed via [Remyx Recommendation](https://engine.remyx.ai).
