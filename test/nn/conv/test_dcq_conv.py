@@ -39,6 +39,7 @@ def test_dcq_conv_concave():
 
 
 def test_dcq_conv_permutation_equivariance():
+    torch.manual_seed(0)
     x = torch.randn(10, 16)
     edge_index = torch.tensor([
         [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 9],
@@ -51,14 +52,16 @@ def test_dcq_conv_permutation_equivariance():
     out1 = conv(x, edge_index)
     assert out1.size() == (10, 8)
 
-    # Permute the node ordering (relabeled edges + permuted features).
+    # Permute the node ordering (relabeled edges + permuted features): ``x2[perm] = x``
+    # places node ``i`` at position ``perm[i]``, so an equivariant layer maps
+    # ``out2[perm[i]] == out1[i]`` -- i.e. permuting ``out2`` back must recover ``out1``.
     perm = torch.randperm(10)
     x2 = torch.empty_like(x)
     x2[perm] = x
     edge_index2 = perm[edge_index]
     out2 = conv(x2, edge_index2)
 
-    assert torch.allclose(out1[perm], out2, atol=1e-5)
+    assert torch.allclose(out2[perm], out1, atol=1e-5)
 
 
 def test_dcq_conv_gradients():
