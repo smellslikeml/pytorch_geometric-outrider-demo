@@ -62,6 +62,7 @@ from .antisymmetric_conv import AntiSymmetricConv
 from .dir_gnn_conv import DirGNNConv
 from .mixhop_conv import MixHopConv
 from .meshcnn_conv import MeshCNNConv
+from .dcq_conv import DCQConv
 
 import torch_geometric.nn.conv.utils  # noqa
 
@@ -133,6 +134,7 @@ __all__ = [
     'DirGNNConv',
     'MixHopConv',
     'MeshCNNConv',
+    'DCQConv',
 ]
 
 classes = __all__
